@@ -39,14 +39,6 @@ spec:
           - name: http
             containerPort: 80
             protocol: TCP
-        livenessProbe:
-          httpGet:
-            path: /api/coderise-blog/health
-            port: http
-        readinessProbe:
-          httpGet:
-            path: /api/coderise-blog/health
-            port: http
         resources:
           {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

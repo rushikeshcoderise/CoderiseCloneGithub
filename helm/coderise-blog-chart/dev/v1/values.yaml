@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: 058291926324.dkr.ecr.us-east-1.amazonaws.com/coderise-blog
+  repository: 058291926324.dkr.ecr.us-east-2.amazonaws.com/coderise-blog
   tag: php-73-apache-4
   pullPolicy: Always
 
@@ -52,7 +52,14 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
-resources: {}
+resources:
+  limits:
+    cpu: "2"
+    memory: 4Gi
+  requests:
+    cpu: "1"
+    memory: 2Gi
+#resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following

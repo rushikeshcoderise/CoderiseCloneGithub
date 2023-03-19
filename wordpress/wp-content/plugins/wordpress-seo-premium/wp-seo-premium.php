@@ -5,12 +5,12 @@
  * WPSEO Premium plugin file.
  *
  * @package   WPSEO\Main
- * @copyright Copyright (C) 2008-2019, Yoast BV - support@yoast.com
+ * @copyright Copyright (C) 2008-2022, Yoast BV - support@yoast.com
  * @license   http://www.gnu.org/licenses/gpl-3.0.html GNU General Public License, version 3 or higher
  *
  * @wordpress-plugin
  * Plugin Name: Yoast SEO Premium
- * Version:     17.8
+ * Version:     18.9
  * Plugin URI:  https://yoa.st/2jc
  * Description: The first true all-in-one SEO solution for WordPress, including on-page content analysis, XML sitemaps and much more.
  * Author:      Team Yoast
@@ -18,11 +18,11 @@
  * Text Domain: wordpress-seo-premium
  * Domain Path: /languages/
  * License:     GPL v3
- * Requires at least: 5.6
+ * Requires at least: 5.9
  * Requires PHP: 5.6.20
  *
  * WC requires at least: 3.0
- * WC tested up to: 5.8
+ * WC tested up to: 6.6
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -56,7 +56,7 @@ if ( ! defined( 'WPSEO_PREMIUM_BASENAME' ) ) {
  * {@internal Nobody should be able to overrule the real version number as this can cause
  *            serious issues with the options, so no if ( ! defined() ).}}
  */
-define( 'WPSEO_PREMIUM_VERSION', '17.8' );
+define( 'WPSEO_PREMIUM_VERSION', '18.9' );
 
 // Initialize Premium autoloader.
 $wpseo_premium_dir               = WPSEO_PREMIUM_PATH;
