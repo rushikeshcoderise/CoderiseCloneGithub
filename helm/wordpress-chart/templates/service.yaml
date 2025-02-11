@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-wordpress-service
+  labels:
+    app: wordpress
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: 80
+      nodePort: 30007  # Fixed NodePort for Minikube access
+  selector:
+    app: wordpress

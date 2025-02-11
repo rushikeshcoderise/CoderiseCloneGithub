@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-wordpress
+  labels:
+    app: wordpress
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: wordpress
+  template:
+    metadata:
+      labels:
+        app: wordpress
+    spec:
+      containers:
+        - name: wordpress
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 80
+          env:
+            - name: WORDPRESS_DB_HOST
+              value: "{{ .Values.env.WORDPRESS_DB_HOST }}"
+            - name: WORDPRESS_DB_USER
+              value: "{{ .Values.env.WORDPRESS_DB_USER }}"
+            - name: WORDPRESS_DB_PASSWORD
+              value: "{{ .Values.env.WORDPRESS_DB_PASSWORD }}"
+            - name: WORDPRESS_DB_NAME
+              value: "{{ .Values.env.WORDPRESS_DB_NAME }}"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
