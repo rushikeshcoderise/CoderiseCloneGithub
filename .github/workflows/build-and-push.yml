@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main  # Trigger on pushes to the main branch
+
 env:
-   ACR_NAME: temprgacr
-   IMAGE_NAME: wpcustom
+  ACR_NAME: temprgacr
+  IMAGE_NAME: wpcustom
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -14,20 +16,25 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
- 
+
       - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}   
           allow-no-subscriptions: true
+      
       - name: Login to ACR
         run: az acr login --name $ACR_NAME
- 
-    - name: Build Docker Image
-      run: |
-        docker build -t $ACR_NAME.azurecr.io/my-wordpress:latest .
+      
+      - name: Build Docker Image
+        run: |
+          docker build -t $ACR_NAME.azurecr.io/${{ env.IMAGE_NAME }}:latest .
 
-    - name: Push Docker image to ACR
-      run: |
-        docker push $ACR_NAME.azurecr.io/my-wordpress:latest
+      - name: Push Docker image to ACR
+        run: |
+          docker push $ACR_NAME.azurecr.io/${{ env.IMAGE_NAME }}:latest
+
+      - name: Logout from Azure
+        run: az logout
+
 
