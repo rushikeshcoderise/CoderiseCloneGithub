@@ -1,40 +1,34 @@
-name: Build and Push Docker Image to ACR
-
+name: CI Pipeline for WordPress
+ 
 on:
   push:
     branches:
-      - main  # Trigger on pushes to the main branch
-
+      - main
+  pull_request:
+    branches:
+      - main
+ 
 env:
-  ACR_NAME: temprgacr
-  IMAGE_NAME: wpcustom
+  ACR_NAME: ${{ secrets.ACR_NAME }}
+  IMAGE_NAME: wordpress-custom-image
 
 jobs:
-  build-and-push:
+  build_and_push:
+    name: Build & Push Docker Image to ACR
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-
+ 
       - name: Azure Login
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}   
+          creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}"}'   
           allow-no-subscriptions: true
       
       - name: Login to ACR
         run: az acr login --name $ACR_NAME
-      
+ 
       - name: Build Docker Image
-        run: |
-          docker build -t $ACR_NAME.azurecr.io/$IMAGE_NAME:latest .
-
-      - name: Push Docker image to ACR
-        run: |
-          docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:latest
-
-      - name: Logout from Azure
-        run: az logout
-
-
+        run: docker build -t $ACR_NAME.azurecr.io/$IMAGE_NAME:latest .
+ 
