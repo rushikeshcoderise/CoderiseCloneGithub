@@ -23,25 +23,21 @@ body:
     validations:
       required: true
 
+  - type: input
+    id: site_url
+    attributes:
+      label: Site Name & URL
+      description: Your site name and URL where the issue occurs.
+      placeholder: e.g. MyEventsSite – https://myeventsite.com
+    validations:
+      required: true
+
   - type: textarea
     id: issue
     attributes:
       label: Issue Description
       description: What problem did you face? (Short and clear)
       placeholder: e.g. Events are not saving after I click publish.
-    validations:
-      required: true
-
-  - type: textarea
-    id: steps
-    attributes:
-      label: Steps to Reproduce
-      description: How can we see the issue on our side?
-      placeholder: |
-        1. Go to Events → Add New
-        2. Fill in details
-        3. Click Publish
-        4. Error appears
     validations:
       required: true
 
