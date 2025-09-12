@@ -8,32 +8,23 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for suggesting a feature! Please give us a short summary and tell us the problem this will solve.
+        Thanks for helping us improve Servv! Tell us what this feature would bring to your workflow.
 
-  - type: input
-    id: summary
+  - type: textarea
+    id: benefit
     attributes:
-      label: Feature Summary
-      description: One-line description of your idea.
-      placeholder: e.g. Add Google Location auto-suggest in booking form
+      label: How would this feature help you?
+      description: Explain the benefit or convenience this feature would bring.
+      placeholder: e.g. Makes event booking faster and more accurate with Google Location auto-suggest.
     validations:
       required: true
 
   - type: textarea
-    id: problem
+    id: idea
     attributes:
-      label: Problem
-      description: What problem would this feature solve for you?
-      placeholder: e.g. Users mistype addresses, causing booking errors.
-    validations:
-      required: true
-
-  - type: textarea
-    id: solution
-    attributes:
-      label: Proposed Solution (optional)
-      description: If you have an idea for how this could work, share it here.
-      placeholder: e.g. Use Google Places autocomplete in the location field.
+      label: Your idea (optional)
+      description: If you already have an idea for how this could work, describe it here.
+      placeholder: e.g. Add Google Places autocomplete to the location field.
     validations:
       required: false
 
@@ -41,11 +32,11 @@ body:
     id: importance
     attributes:
       label: How important is this feature to you?
-      description: Helps us prioritize better.
+      description: Helps us understand how valuable this is for your workflow.
       options:
-        - "Nice to have"
-        - "Useful"
-        - "Critical for my workflow"
+       - "Nice to have" 
+       - "Useful" 
+       - "Critical for my workflow"
     validations:
       required: false
 
@@ -53,7 +44,7 @@ body:
     id: attachments
     attributes:
       label: Screenshots / Mockups (optional)
-      description: Add screenshots, sketches, or links if you have them.
+      description: Add any screenshots, sketches, or links if you have them.
       placeholder: Drag and drop files here
     validations:
       required: false
