@@ -1,0 +1,14 @@
+blank_issues_enabled: false  # ❌ Disable blank issue option
+
+contact_links:
+  - name: 📚 Documentation
+    url: https://support.servv.ai
+    about: Read our guides and FAQs for quick answers.
+
+  - name: 📝 WordPress.org Support Forum
+    url: https://wordpress.org/support/plugin/servv
+    about: Community support for free plugin users.
+
+  - name: 📧 Contact Servv Support
+    url: mailto:support@servv.com
+    about: For private or account-specific questions, please email us.
