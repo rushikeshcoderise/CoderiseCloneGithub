@@ -1,0 +1,62 @@
+name: "🐞 Bug Report 3"
+description: "Help us fix issues in the Servv WordPress plugin."
+title: "[Bug]: "
+labels: ["type:bug"]
+assignees: []
+
+body:
+  - type: input
+    id: wp_version
+    attributes:
+      label: WordPress Version
+      description: Which WordPress version are you using?
+      placeholder: e.g. 6.5.3
+    validations:
+      required: true
+
+  - type: input
+    id: plugin_version
+    attributes:
+      label: Servv Plugin Version
+      description: Which version of the Servv plugin is installed?
+      placeholder: e.g. 2.1.4
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: Issue Description
+      description: What problem did you face? (Short and clear)
+      placeholder: e.g. Events are not saving after I click publish.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we see the issue on our side?
+      placeholder: |
+        1. Go to Events → Add New
+        2. Fill in details
+        3. Click Publish
+        4. Error appears
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Site Environment (optional)
+      description: Add details if known (PHP version, hosting, active theme, or other plugins).
+      placeholder: e.g. PHP 8.1, Astra theme, WooCommerce active
+    validations:
+      required: false
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots / Logs (optional)
+      description: Add screenshots, console errors, or server logs if possible.
+      placeholder: Drag and drop files here
