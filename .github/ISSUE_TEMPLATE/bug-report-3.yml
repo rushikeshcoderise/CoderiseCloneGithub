@@ -5,7 +5,7 @@ labels: ["type:bug"]
 assignees: []
 
 body:
- - type: textarea
+  - type: textarea
     id: issue
     attributes:
       label: Issue Description
@@ -22,24 +22,6 @@ body:
       placeholder: e.g. MyEventsSite – https://myeventsite.com
     validations:
       required: false
-  
-  # - type: input
-  #   id: wp_version
-  #   attributes:
-  #     label: WordPress Version
-  #     description: Which WordPress version are you using?
-  #     placeholder: e.g. 6.5.3
-  #   validations:
-  #     required: false
-
-  # - type: input
-  #   id: plugin_version
-  #   attributes:
-  #     label: Servv Plugin Version
-  #     description: Which version of the Servv plugin is installed?
-  #     placeholder: e.g. 2.1.4
-  #   validations:
-  #     required: false
 
   - type: textarea
     id: environment
@@ -56,3 +38,5 @@ body:
       label: Screenshots / Logs (optional)
       description: Add screenshots, console errors, or server logs if possible.
       placeholder: Drag and drop files here
+    validations:
+      required: false
