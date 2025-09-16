@@ -5,7 +5,7 @@ labels: ["type:bug"]
 assignees: []
 
 body:
-- type: textarea
+ - type: textarea
     id: issue
     attributes:
       label: Issue Description
