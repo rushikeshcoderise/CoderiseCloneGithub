@@ -1,50 +1,50 @@
-name: "🌟 Feature Request"
-description: "Suggest a new feature or improvement for the Servv plugin."
-title: "[Feature]: "
-labels: ["type:feature"]
-assignees: []
+# name: "🌟 Feature Request"
+# description: "Suggest a new feature or improvement for the Servv plugin."
+# title: "[Feature]: "
+# labels: ["type:feature"]
+# assignees: []
 
-body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for helping us improve Servv! Tell us what this feature would bring to your workflow.
+# body:
+#   - type: markdown
+#     attributes:
+#       value: |
+#         Thanks for helping us improve Servv! Tell us what this feature would bring to your workflow.
 
-  - type: textarea
-    id: benefit
-    attributes:
-      label: How would this feature help you?
-      description: Explain the benefit or convenience this feature would bring.
-      placeholder: e.g. Makes event booking faster and more accurate with Google Location auto-suggest.
-    validations:
-      required: true
+#   - type: textarea
+#     id: benefit
+#     attributes:
+#       label: How would this feature help you?
+#       description: Explain the benefit or convenience this feature would bring.
+#       placeholder: e.g. Makes event booking faster and more accurate with Google Location auto-suggest.
+#     validations:
+#       required: true
 
-  - type: textarea
-    id: idea
-    attributes:
-      label: Your idea (optional)
-      description: If you already have an idea for how this could work, describe it here.
-      placeholder: e.g. Add Google Places autocomplete to the location field.
-    validations:
-      required: false
+#   - type: textarea
+#     id: idea
+#     attributes:
+#       label: Your idea (optional)
+#       description: If you already have an idea for how this could work, describe it here.
+#       placeholder: e.g. Add Google Places autocomplete to the location field.
+#     validations:
+#       required: false
 
-  - type: dropdown
-    id: importance
-    attributes:
-      label: How important is this feature to you?
-      description: Helps us understand how valuable this is for your workflow.
-      options:
-       - "Nice to have" 
-       - "Useful" 
-       - "Critical for my workflow"
-    validations:
-      required: false
+#   - type: dropdown
+#     id: importance
+#     attributes:
+#       label: How important is this feature to you?
+#       description: Helps us understand how valuable this is for your workflow.
+#       options:
+#        - "Nice to have" 
+#        - "Useful" 
+#        - "Critical for my workflow"
+#     validations:
+#       required: false
 
-  - type: textarea
-    id: attachments
-    attributes:
-      label: Screenshots / Mockups (optional)
-      description: Add any screenshots, sketches, or links if you have them.
-      placeholder: Drag and drop files here
-    validations:
-      required: false
+#   - type: textarea
+#     id: attachments
+#     attributes:
+#       label: Screenshots / Mockups (optional)
+#       description: Add any screenshots, sketches, or links if you have them.
+#       placeholder: Drag and drop files here
+#     validations:
+#       required: false
