@@ -1,25 +1,27 @@
-name: Comment on new issues with secure support link
+name: Comment on new issues
+
 on:
   issues:
     types: [opened]
+
+permissions:
+  issues: write   # 👈 allow this workflow to write issue comments
 
 jobs:
   comment:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v6
+      - name: Post support link
+        uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const issueNumber = context.payload.issue.number;
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const supportBase = "https://servv-support-worker.rushikesh-gulhane.workers.dev"; 
-            const supportUrl = `${supportBase}?issue=${issueNumber}&repo=${owner}/${repo}`;
-            const body = `Thanks — we received your report (issue #${issueNumber}).\n\n⚠️ **Do not post usernames or passwords in this issue.**\n\nTo help us investigate, please submit your Site Name & URL (and any short notes) securely here:\n\n${supportUrl}\n\nWe will use the provided site info to investigate and will reach out if we need credentials.`;
+            const issueNumber = context.issue.number;
+            const supportUrl = "https://servv-support-worker.rushikesh-gulhane.workers.dev";
+            const body = `Thanks — we received your report (issue #${issueNumber}).\n\n**Do not post usernames or passwords in this issue.**\n\nTo help us investigate, please submit your Site Name & URL (and any short notes) securely here:\n\n${supportUrl}?issue=${issueNumber}&repo=${context.repo.owner}/${context.repo.repo}\n\nWe will use the provided site info to investigate and will reach out if we need credentials.`;
+
             await github.rest.issues.createComment({
-              owner,
-              repo,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
               issue_number: issueNumber,
               body
             });
