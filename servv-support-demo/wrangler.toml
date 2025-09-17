@@ -1,9 +1,9 @@
 name = "servv-support-worker"
-main = "worker.js"
+main = "servv-support-demo/worker.js"
 compatibility_date = "2025-09-17"
 
-account_id = "<YOUR_CLOUDFLARE_ACCOUNT_ID>"
+account_id = "28eb76f22b8fa45bb00e1e8196f8cd89"
 
 kv_namespaces = [
-  { binding = "SERVV_SUBMISSIONS", id = "<KV_NAMESPACE_ID>" }
+  { binding = "SERVV_SUBMISSIONS", id = "ca0a6fda2805484fbb8dce7eb0f8167f" }
 ]
