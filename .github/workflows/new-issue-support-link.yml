@@ -1,27 +1,158 @@
-name: Comment on new issues
+# name: Comment on new issues
 
+# on:
+#   issues:
+#     types: [opened]
+
+# permissions:
+#   issues: write   # 👈 allow this workflow to write issue comments
+
+# jobs:
+#   comment:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Post support link
+#         uses: actions/github-script@v6
+#         with:
+#           script: |
+#             const issueNumber = context.issue.number;
+#             const supportUrl = "https://servv-support-worker.rushikesh-gulhane.workers.dev";
+#             const body = `Thanks — we received your report (issue #${issueNumber}).\n\n**Do not post usernames or passwords in this issue.**\n\nTo help us investigate, please submit your Site Name & URL (and any short notes) securely here:\n\n${supportUrl}?issue=${issueNumber}&repo=${context.repo.owner}/${context.repo.repo}\n\nWe will use the provided site info to investigate and will reach out if we need credentials.`;
+
+#             await github.rest.issues.createComment({
+#               owner: context.repo.owner,
+#               repo: context.repo.repo,
+#               issue_number: issueNumber,
+#               body
+#             });
+
+
+name: Support token links (create + reissue)
+
+# Trigger on issue opened and on new issue comments
 on:
   issues:
     types: [opened]
+  issue_comment:
+    types: [created]
 
+# Need permission to write issues (create comments, lock/unlock)
 permissions:
-  issues: write   # 👈 allow this workflow to write issue comments
+  issues: write
 
 jobs:
-  comment:
+  create-on-open:
+    name: Create token & post link on issue open
+    if: ${{ github.event_name == 'issues' && github.event.action == 'opened' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Post support link
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const issueNumber = context.issue.number;
-            const supportUrl = "https://servv-support-worker.rushikesh-gulhane.workers.dev";
-            const body = `Thanks — we received your report (issue #${issueNumber}).\n\n**Do not post usernames or passwords in this issue.**\n\nTo help us investigate, please submit your Site Name & URL (and any short notes) securely here:\n\n${supportUrl}?issue=${issueNumber}&repo=${context.repo.owner}/${context.repo.repo}\n\nWe will use the provided site info to investigate and will reach out if we need credentials.`;
+      - name: Create token (call support worker)
+        id: create_token
+        run: |
+          set -euo pipefail
+          OWNER_REPO="${GITHUB_REPOSITORY}"
+          ISSUE_NUM="${{ github.event.issue.number }}"
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              body
-            });
+          # POST to worker to create token. ACTION_KEY must be added to repo secrets.
+          resp=$(curl -s -X POST "https://servv-support-worker.rushikesh-gulhane.workers.dev/api/create-token" \
+            -H "x-create-secret: ${{ secrets.ACTION_KEY }}" \
+            -F "issue=${ISSUE_NUM}" \
+            -F "repo=${OWNER_REPO}")
+
+          echo "$resp" > token.json
+          url=$(jq -r .url token.json)
+          token=$(jq -r .token token.json)
+          if [ "$url" = "null" ] || [ -z "$url" ]; then
+            echo "Failed to create token: $resp"
+            exit 1
+          fi
+          echo "::set-output name=url::$url"
+          echo "::set-output name=token::$token"
+      - name: Comment on the issue with secure link
+        run: |
+          COMMENT_BODY="Thanks — please submit site info securely: ${{ steps.create_token.outputs.url }}\n\n⚠️ Do not post usernames or passwords in this issue."
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
+            -d "$(jq -nc --arg b "$COMMENT_BODY" '{body:$b}')"
+      - name: Lock issue (prevent new public comments)
+        run: |
+          curl -s -X PUT \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/lock" \
+            -d '{"lock_reason":"resolved"}'
+
+  reissue-on-comment:
+    name: Reissue token when author requests
+    if: ${{ github.event_name == 'issue_comment' && github.event.action == 'created' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if commenter is issue author and body is /request-link
+        id: check
+        run: |
+          set -euo pipefail
+          COMMENTER="${{ github.event.comment.user.login }}"
+          ISSUE_AUTHOR="${{ github.event.issue.user.login }}"
+          BODY="${{ github.event.comment.body }}"
+
+          echo "Commenter: $COMMENTER"
+          echo "Issue author: $ISSUE_AUTHOR"
+          echo "Comment body: $BODY"
+
+          # Only proceed if comment equals exactly "/request-link" (adjust if you want substring)
+          if [ "$COMMENTER" != "$ISSUE_AUTHOR" ]; then
+            echo "Not the issue author — skipping reissue."
+            echo "::set-output name=proceed::false"
+            exit 0
+          fi
+
+          # Trim whitespace and compare
+          TRIMMED=$(echo "$BODY" | tr -d '\r' | sed 's/^ *//;s/ *$//')
+          if [ "$TRIMMED" != "/request-link" ]; then
+            echo "Comment not /request-link — skipping."
+            echo "::set-output name=proceed::false"
+            exit 0
+          fi
+
+          echo "::set-output name=proceed::true"
+      - name: Create a new token (if requested)
+        if: ${{ steps.check.outputs.proceed == 'true' }}
+        id: create_token2
+        run: |
+          set -euo pipefail
+          OWNER_REPO="${GITHUB_REPOSITORY}"
+          ISSUE_NUM="${{ github.event.issue.number }}"
+
+          resp=$(curl -s -X POST "https://servv-support-worker.rushikesh-gulhane.workers.dev/api/create-token" \
+            -H "x-create-secret: ${{ secrets.ACTION_KEY }}" \
+            -F "issue=${ISSUE_NUM}" \
+            -F "repo=${OWNER_REPO}")
+
+          echo "$resp" > token2.json
+          url=$(jq -r .url token2.json)
+          token=$(jq -r .token token2.json)
+          if [ "$url" = "null" ] || [ -z "$url" ]; then
+            echo "Failed to create token: $resp"
+            exit 1
+          fi
+          echo "::set-output name=url::$url"
+          echo "::set-output name=token::$token"
+      - name: Post reissue comment with new link (if created)
+        if: ${{ steps.check.outputs.proceed == 'true' }}
+        run: |
+          COMMENT_BODY="Here’s a fresh secure link (one-time, 15 minutes): ${{ steps.create_token2.outputs.url }}\n\n⚠️ Do not post credentials in public."
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
+            -d "$(jq -nc --arg b "$COMMENT_BODY" '{body:$b}')"
+      - name: Re-lock issue (if reissued)
+        if: ${{ steps.check.outputs.proceed == 'true' }}
+        run: |
+          curl -s -X PUT \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.number }}/lock" \
+            -d '{"lock_reason":"resolved"}'

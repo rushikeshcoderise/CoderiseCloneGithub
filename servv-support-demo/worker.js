@@ -1,3 +1,4 @@
+
 // // worker.js
 // addEventListener('fetch', event => {
 //   event.respondWith(router(event.request));
@@ -14,8 +15,9 @@
 //     return handleSubmit(request);
 //   }
 
+//   // <-- PASS request to handleAdminList to avoid Worker exception
 //   if (request.method === 'GET' && url.pathname === '/admin/list') {
-//     return handleAdminList();
+//     return handleAdminList(request);
 //   }
 
 //   // confirmation page
@@ -420,7 +422,12 @@
 //   });
 // }
 
+
 // worker.js
+// Single-use token flow (create-token + 15-min TTL + delete-on-use)
+// KV bindings required: SERVV_TOKENS, SERVV_SUBMISSIONS
+// Secret required: ACTION_KEY (set via wrangler secret put ACTION_KEY)
+
 addEventListener('fetch', event => {
   event.respondWith(router(event.request));
 });
@@ -431,12 +438,17 @@ async function router(request) {
     return handleIndex();
   }
 
-  // keep your existing POST path '/api/submit'
+  // token creation endpoint (called by GitHub Action)
+  if (request.method === 'POST' && url.pathname === '/api/create-token') {
+    return handleCreateToken(request);
+  }
+
+  // submit handler
   if (request.method === 'POST' && url.pathname === '/api/submit') {
     return handleSubmit(request);
   }
 
-  // <-- PASS request to handleAdminList to avoid Worker exception
+  // admin list
   if (request.method === 'GET' && url.pathname === '/admin/list') {
     return handleAdminList(request);
   }
@@ -449,7 +461,9 @@ async function router(request) {
   return new Response('Not Found', { status: 404 });
 }
 
-/* ----------index/form page (cleaned) ---------- */
+/* ---------- index/form page (cleaned) ----------
+   Note: includes hidden token input id="token" so URL ?token=... auto-fills it
+*/
 function handleIndex() {
   const html = `<!doctype html>
 <html lang="en">
@@ -499,7 +513,6 @@ function handleIndex() {
     color:white;padding:10px 14px;border-radius:10px;border:0;font-weight:600;cursor:pointer;
     box-shadow: 0 8px 20px rgba(124,58,237,0.18);
   }
-  .btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.04); color:var(--white);box-shadow:none;}
   .right{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00)); border-radius:10px;padding:16px;border:1px solid rgba(255,255,255,0.02); color:var(--muted);}
   .right h3{color:var(--white);margin:0 0 8px 0;font-size:16px;}
   .meta{font-size:13px;line-height:1.55;}
@@ -523,6 +536,7 @@ function handleIndex() {
 
         <form id="support" method="post" action="/api/submit" novalidate>
           <input type="hidden" name="issue" id="issue" />
+          <input type="hidden" name="token" id="token" />
           <div class="field">
             <label for="site">Site name & URL (required)</label>
             <input id="site" name="site" type="text" placeholder="MySite — https://example.com" required />
@@ -550,19 +564,22 @@ function handleIndex() {
           • Quick: one short field — saves time for both users & support.
         </div>
 
-        <div class="tip">Tip: Click the support link from the GitHub issue — the issue number will auto-fill here and we’ll link the submission to that issue.</div>
+        <div class="tip">Tip: Click the support link from the GitHub issue — the issue number and token will auto-fill here and we’ll link the submission to that issue.</div>
       </aside>
     </div>
   </div>
 
 <script>
-  // prefill issue param if present
+  // prefill issue and token params if present
   const params = new URLSearchParams(location.search);
   if (params.get('issue')) {
     document.getElementById('issue').value = params.get('issue');
   }
+  if (params.get('token')) {
+    document.getElementById('token').value = params.get('token');
+  }
 
-  // optional: client validation - simple
+  // simple client validation
   document.getElementById('support').addEventListener('submit', function(e){
     const site = document.getElementById('site').value.trim();
     if(!site){
@@ -571,7 +588,6 @@ function handleIndex() {
       document.getElementById('site').focus();
       return false;
     }
-    // allow submit (server will validate)
     return true;
   });
 </script>
@@ -580,39 +596,122 @@ function handleIndex() {
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' }});
 }
 
+/* ---------- Create token endpoint (called by GitHub Action) ----------
+   POST /api/create-token
+   Headers: x-create-secret: ACTION_KEY
+   Body: form-data or JSON { issue, repo }
+   Response: JSON { ok:true, url, token }
+   Token TTL: 15 minutes (expirationTtl)
+*/
+async function handleCreateToken(request) {
+  try {
+    const secret = request.headers.get('x-create-secret') || '';
+    if (!secret || secret !== ACTION_KEY) return new Response('Forbidden', { status: 403 });
+
+    const ct = request.headers.get('content-type') || '';
+    let issue = null, repo = null;
+    if (ct.includes('application/json')) {
+      const j = await request.json().catch(()=>({}));
+      issue = j.issue; repo = j.repo;
+    } else {
+      const fd = await request.formData();
+      issue = fd.get('issue'); repo = fd.get('repo');
+    }
+
+    if (!issue || !repo) {
+      return new Response(JSON.stringify({ ok:false, message: 'issue & repo required' }), { status: 400, headers: {'Content-Type':'application/json'}});
+    }
+
+    const token = makeToken(20);
+    const now = new Date().toISOString();
+    const expiresSeconds = 15 * 60; // 15 minutes
+
+    const meta = { issue: String(issue), repo: String(repo), createdAt: now, expiresAt: new Date(Date.now() + expiresSeconds*1000).toISOString() };
+
+    // store token with TTL so it auto-expires (15 minutes)
+    await SERVV_TOKENS.put(`token:${token}`, JSON.stringify(meta), { expirationTtl: expiresSeconds });
+
+    const origin = new URL(request.url).origin;
+    const url = `${origin}/?issue=${encodeURIComponent(issue)}&repo=${encodeURIComponent(repo)}&token=${encodeURIComponent(token)}`;
+
+    return new Response(JSON.stringify({ ok:true, url, token }), { status: 200, headers: {'Content-Type':'application/json'} });
+
+  } catch (err) {
+    return new Response(JSON.stringify({ ok:false, error: err.toString() }), { status: 500, headers: {'Content-Type':'application/json'} });
+  }
+}
+
 /* ---------- Submit handler (stores to KV) ----------
-   FIXED: use absolute redirect URL (origin + path) to avoid "Unable to parse URL" errors
+   Validation: requires token (from form or query), checks SERVV_TOKENS, deletes token on success (single-use delete), TTL 15min
 */
 async function handleSubmit(request) {
   try {
     const contentType = request.headers.get('content-type') || '';
-    let issue = null, site = null, notes = null;
-
+    let issue = null, site = null, notes = null, token = null;
     if (contentType.includes('application/json')) {
       const j = await request.json().catch(()=>({}));
       issue = j.issue || null;
       site = j.site || null;
       notes = j.notes || null;
+      token = j.token || null;
     } else {
       const form = await request.formData();
       issue = form.get('issue') || null;
       site = form.get('site') || null;
       notes = form.get('notes') || null;
+      token = form.get('token') || null;
     }
 
+    // token is required for protected flow
+    if (!token) {
+      // attempt to get repo from query string (for issue link) then respond friendly
+      const reqUrl = new URL(request.url);
+      const repoFromQuery = reqUrl.searchParams.get('repo') || '';
+      return invalidTokenResponse(issue, repoFromQuery);
+    }
+
+    const tkey = `token:${token}`;
+    const raw = await SERVV_TOKENS.get(tkey);
+    if (!raw) {
+      // token missing or expired
+      // attempt to get repo from request body/form or URL
+      const reqUrl = new URL(request.url);
+      const repoFromQuery = reqUrl.searchParams.get('repo') || '';
+      return invalidTokenResponse(issue, repoFromQuery);
+    }
+
+    // parse token meta (we stored issue/repo when created)
+    let meta;
+    try {
+      meta = JSON.parse(raw);
+    } catch (e) {
+      const reqUrl = new URL(request.url);
+      const repoFromQuery = reqUrl.searchParams.get('repo') || '';
+      return invalidTokenResponse(issue, repoFromQuery);
+    }
+
+    // check expiry defensively (KV uses TTL but double-check)
+    if (meta.expiresAt && new Date(meta.expiresAt) < new Date()) {
+      await SERVV_TOKENS.delete(tkey).catch(()=>{});
+      return invalidTokenResponse(issue, meta.repo || '');
+    }
+
+    // basic site check
     if (!site) {
       return new Response(JSON.stringify({ ok:false, message: 'site is required' }), { status: 400, headers:{'Content-Type':'application/json'}});
     }
 
+    // store submission (we keep tokenUsed in entry for reference)
     const id = `sub_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-    const entry = { id, issue, site, notes, createdAt: new Date().toISOString() };
-
-    // Store in KV: binding name SERVV_SUBMISSIONS (set in wrangler.toml)
+    const entry = { id, issue: meta.issue || issue, repo: meta.repo || '', site, notes, createdAt: new Date().toISOString(), tokenUsed: token };
     await SERVV_SUBMISSIONS.put(id, JSON.stringify(entry));
 
-    // Build absolute redirect URL (important in Workers)
+    // Delete token immediately (single-use + tidier KV)
+    await SERVV_TOKENS.delete(tkey).catch(()=>{});
+
+    // Build absolute redirect URL
     const reqUrl = new URL(request.url);
-    const origin = reqUrl.origin; // e.g. https://your-worker-subdomain.workers.dev
+    const origin = reqUrl.origin;
     const redirectPath = `/submitted.html?id=${encodeURIComponent(id)}${issue ? '&issue=' + encodeURIComponent(issue) : ''}`;
     const fullRedirect = origin + redirectPath;
 
@@ -624,13 +723,29 @@ async function handleSubmit(request) {
   }
 }
 
-/* ---------- Admin page: styled HTML table + search + CSV export ---------- */
+/* Helper: Friendly invalid token HTML response */
+function invalidTokenResponse(issue, repo) {
+  const issueLink = (issue && repo) ? `<p style="margin-top:8px">Link to issue: <a href="https://github.com/${escapeHtml(repo)}/issues/${escapeHtml(issue)}" target="_blank">#${escapeHtml(issue)}</a></p>` : '';
+  const html = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Link invalid or expired</title>
+<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#071022;color:#e6eef8;padding:30px;display:flex;align-items:center;justify-content:center;height:100vh} .box{max-width:720px;background:linear-gradient(180deg,#071022,#081229);padding:24px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)} h2{margin:0 0 8px 0} p{color:#b7c6db}</style></head><body>
+  <div class="box">
+    <h2>This support link is already used or expired</h2>
+    <p>If this is your issue and you still need help, please comment on the GitHub issue to request a new secure link. We will verify and provide a fresh secure link.</p>
+    ${issueLink}
+    <p style="margin-top:12px">Thanks — the team.</p>
+  </div>
+</body></html>`;
+  return new Response(html, { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8' }});
+}
+
+/* ---------- Admin page: styled HTML table + search + CSV export ----------
+   (unchanged, but submissions now include tokenUsed field)
+*/
 async function handleAdminList(request) {
-  // optional: repo param to create issue links (owner/repo)
   const reqUrl = new URL(request.url);
   const repo = reqUrl.searchParams.get('repo') || '';
 
-  // read up to 1000 items for small demo (adjust if needed)
   const list = await SERVV_SUBMISSIONS.list({ limit: 1000 });
   const items = [];
   for (const key of list.keys) {
@@ -639,15 +754,13 @@ async function handleAdminList(request) {
       try {
         items.push(JSON.parse(v));
       } catch (e) {
-        // ignore malformed entry
+        // ignore malformed
       }
     }
   }
 
-  // sort newest first
   items.sort((a,b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
-  // escape & inject JSON for client-side functions (safe-ish for demo)
   const itemsJson = JSON.stringify(items).replace(/</g, '\\u003c');
 
   const html = `<!doctype html>
@@ -695,13 +808,12 @@ async function handleAdminList(request) {
         <tr>
           <th style="width:12%">ID</th>
           <th style="width:10%">Issue</th>
-          <th style="width:38%">Site</th>
+          <th style="width:30%">Site</th>
           <th style="width:30%">Notes</th>
           <th style="width:10%">Created</th>
         </tr>
       </thead>
       <tbody id="tbody">
-        <!-- rows injected by JS -->
       </tbody>
     </table>
   </div>
@@ -726,10 +838,7 @@ async function handleAdminList(request) {
       const site = escapeHtml(it.site || '');
       const notes = escapeHtml(it.notes || '') || '<span class="small">—</span>';
       const created = escapeHtml(it.createdAt ? new Date(it.createdAt).toLocaleString() : '');
-
-      // build issue link if repo provided
       const issueCell = issue ? (repo ? '<a class="link" target="_blank" href="https://github.com/' + encodeURIComponent(repo) + '/issues/' + encodeURIComponent(issue) + '">#' + issue + '</a>' : '#' + issue) : '<span class="small">—</span>';
-
       const row = '<tr>' +
         '<td class="mono">' + id + '</td>' +
         '<td>' + issueCell + '</td>' +
@@ -795,7 +904,6 @@ async function handleAdminList(request) {
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' }});
 }
 
-
 /* ---------- Submitted page  ---------- */
 function handleSubmittedPage(url) {
   const id = url.searchParams.get('id') || '';
@@ -843,3 +951,9 @@ function escapeHtml(str) {
   });
 }
 
+/* ---------- token helper ---------- */
+function makeToken(len = 16) {
+  const alphabet = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const arr = crypto.getRandomValues(new Uint8Array(len));
+  return Array.from(arr).map(n => alphabet[n % alphabet.length]).join('');
+}
