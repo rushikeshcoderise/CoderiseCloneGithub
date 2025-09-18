@@ -1,32 +1,3 @@
-# name: Comment on new issues
-
-# on:
-#   issues:
-#     types: [opened]
-
-# permissions:
-#   issues: write   # 👈 allow this workflow to write issue comments
-
-# jobs:
-#   comment:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Post support link
-#         uses: actions/github-script@v6
-#         with:
-#           script: |
-#             const issueNumber = context.issue.number;
-#             const supportUrl = "https://servv-support-worker.rushikesh-gulhane.workers.dev";
-#             const body = `Thanks — we received your report (issue #${issueNumber}).\n\n**Do not post usernames or passwords in this issue.**\n\nTo help us investigate, please submit your Site Name & URL (and any short notes) securely here:\n\n${supportUrl}?issue=${issueNumber}&repo=${context.repo.owner}/${context.repo.repo}\n\nWe will use the provided site info to investigate and will reach out if we need credentials.`;
-
-#             await github.rest.issues.createComment({
-#               owner: context.repo.owner,
-#               repo: context.repo.repo,
-#               issue_number: issueNumber,
-#               body
-#             });
-
-
 name: Support token links (create + reissue)
 
 on:
@@ -157,7 +128,8 @@ jobs:
           OWNER_REPO="${GITHUB_REPOSITORY}"
           URL="${{ steps.create_token2.outputs.url }}"
 
-          COMMENT_BODY=$(printf "Here’s a fresh secure link (one-time, 15 minutes): %s\n\n⚠️ Do not post credentials in public." "$URL")
+          # Use same labeled markdown link so GitHub displays a short label instead of raw URL
+          COMMENT_BODY=$(printf "Here’s a fresh secure link (one-time, 15 minutes):\n\n[Submit securely](%s)\n\n⚠️ Do not post credentials in public." "$URL")
           PAYLOAD=$(jq -nc --arg b "$COMMENT_BODY" '{body: $b}')
 
           curl -s -X POST \
