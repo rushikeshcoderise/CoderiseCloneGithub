@@ -4,8 +4,11 @@ compatibility_date = "2025-09-17"
 
 account_id = "28eb76f22b8fa45bb00e1e8196f8cd89"
 
-kv_namespaces = [
-  { binding = "SERVV_SUBMISSIONS", id = "ca0a6fda2805484fbb8dce7eb0f8167f" }
-  { binding = "SERVV_TOKENS", id = "9b1c8692216d404dbd42d01aa932f951" }
+[[kv_namespaces]]
+binding = "SERVV_SUBMISSIONS"
+id = "ca0a6fda2805484fbb8dce7eb0f8167f"
 
-]
+[[kv_namespaces]]
+binding = "SERVV_TOKENS"
+id = "9b1c8692216d404dbd42d01aa932f951"
+

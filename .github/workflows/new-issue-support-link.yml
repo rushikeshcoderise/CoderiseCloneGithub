@@ -29,14 +29,12 @@
 
 name: Support token links (create + reissue)
 
-# Trigger on issue opened and on new issue comments
 on:
   issues:
     types: [opened]
   issue_comment:
     types: [created]
 
-# Need permission to write issues (create comments, lock/unlock)
 permissions:
   issues: write
 
@@ -53,7 +51,6 @@ jobs:
           OWNER_REPO="${GITHUB_REPOSITORY}"
           ISSUE_NUM="${{ github.event.issue.number }}"
 
-          # POST to worker to create token. ACTION_KEY must be added to repo secrets.
           resp=$(curl -s -X POST "https://servv-support-worker.rushikesh-gulhane.workers.dev/api/create-token" \
             -H "x-create-secret: ${{ secrets.ACTION_KEY }}" \
             -F "issue=${ISSUE_NUM}" \
@@ -68,20 +65,32 @@ jobs:
           fi
           echo "::set-output name=url::$url"
           echo "::set-output name=token::$token"
-      - name: Comment on the issue with secure link
+
+      - name: Comment on the issue with secure link (short label)
         run: |
-          COMMENT_BODY="Thanks — please submit site info securely: ${{ steps.create_token.outputs.url }}\n\n⚠️ Do not post usernames or passwords in this issue."
+          set -euo pipefail
+          ISSUE_NUM="${{ github.event.issue.number }}"
+          OWNER_REPO="${GITHUB_REPOSITORY}"
+          URL="${{ steps.create_token.outputs.url }}"
+
+          # Build a neat markdown comment using a short link label.
+          COMMENT_BODY=$(printf "Thanks — we received your report (issue #%s).\n\n⚠️ Do not post usernames or passwords in this issue.\n\nTo help us investigate, please submit your Site Name & URL (and any short notes) securely here:\n\n[Submit securely](%s)\n\n(Links expire after 15 minutes.)\n\nWe will use the provided site info to investigate and will reach out if we need credentials." "$ISSUE_NUM" "$URL")
+
+          PAYLOAD=$(jq -nc --arg b "$COMMENT_BODY" '{body: $b}')
+
           curl -s -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
-            -d "$(jq -nc --arg b "$COMMENT_BODY" '{body:$b}')"
+            "https://api.github.com/repos/${OWNER_REPO}/issues/${ISSUE_NUM}/comments" \
+            -d "$PAYLOAD"
+
       - name: Lock issue (prevent new public comments)
         run: |
+          ISSUE_NUM="${{ github.event.issue.number }}"
           curl -s -X PUT \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/lock" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${ISSUE_NUM}/lock" \
             -d '{"lock_reason":"resolved"}'
 
   reissue-on-comment:
@@ -89,7 +98,7 @@ jobs:
     if: ${{ github.event_name == 'issue_comment' && github.event.action == 'created' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Check if commenter is issue author and body is /request-link
+      - name: Check if commenter is issue author and body contains /request-link (case-insensitive)
         id: check
         run: |
           set -euo pipefail
@@ -101,22 +110,22 @@ jobs:
           echo "Issue author: $ISSUE_AUTHOR"
           echo "Comment body: $BODY"
 
-          # Only proceed if comment equals exactly "/request-link" (adjust if you want substring)
           if [ "$COMMENTER" != "$ISSUE_AUTHOR" ]; then
             echo "Not the issue author — skipping reissue."
             echo "::set-output name=proceed::false"
             exit 0
           fi
 
-          # Trim whitespace and compare
-          TRIMMED=$(echo "$BODY" | tr -d '\r' | sed 's/^ *//;s/ *$//')
-          if [ "$TRIMMED" != "/request-link" ]; then
-            echo "Comment not /request-link — skipping."
+          # case-insensitive substring match
+          LOWER=$(echo "$BODY" | tr '[:upper:]' '[:lower:]')
+          if ! echo "$LOWER" | grep -q "/request-link"; then
+            echo "Comment does not contain /request-link — skipping."
             echo "::set-output name=proceed::false"
             exit 0
           fi
 
           echo "::set-output name=proceed::true"
+
       - name: Create a new token (if requested)
         if: ${{ steps.check.outputs.proceed == 'true' }}
         id: create_token2
@@ -139,20 +148,30 @@ jobs:
           fi
           echo "::set-output name=url::$url"
           echo "::set-output name=token::$token"
+
       - name: Post reissue comment with new link (if created)
         if: ${{ steps.check.outputs.proceed == 'true' }}
         run: |
-          COMMENT_BODY="Here’s a fresh secure link (one-time, 15 minutes): ${{ steps.create_token2.outputs.url }}\n\n⚠️ Do not post credentials in public."
+          set -euo pipefail
+          ISSUE_NUM="${{ github.event.issue.number }}"
+          OWNER_REPO="${GITHUB_REPOSITORY}"
+          URL="${{ steps.create_token2.outputs.url }}"
+
+          COMMENT_BODY=$(printf "Here’s a fresh secure link (one-time, 15 minutes): %s\n\n⚠️ Do not post credentials in public." "$URL")
+          PAYLOAD=$(jq -nc --arg b "$COMMENT_BODY" '{body: $b}')
+
           curl -s -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
-            -d "$(jq -nc --arg b "$COMMENT_BODY" '{body:$b}')"
+            "https://api.github.com/repos/${OWNER_REPO}/issues/${ISSUE_NUM}/comments" \
+            -d "$PAYLOAD"
+
       - name: Re-lock issue (if reissued)
         if: ${{ steps.check.outputs.proceed == 'true' }}
         run: |
+          ISSUE_NUM="${{ github.event.issue.number }}"
           curl -s -X PUT \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.number }}/lock" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${ISSUE_NUM}/lock" \
             -d '{"lock_reason":"resolved"}'
